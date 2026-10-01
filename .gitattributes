@@ -1,0 +1,9 @@
+# Auto detect text files and normalize line endings
+* text=auto
+
+# Python
+*.py text eol=lf
+v4zrip text eol=lf
+
+# Shell
+*.sh text eol=lf
