@@ -33,6 +33,9 @@ if command -v pkg >/dev/null 2>&1; then
     echo "    -> When Android asks, tap ALLOW (one time only)."
     termux-setup-storage </dev/null || true
   fi
+  if [ -d "$HOME/storage/downloads" ]; then
+    mkdir -p "$HOME/storage/downloads/V4Z-Rips" || true
+  fi
 elif ! command -v python3 >/dev/null 2>&1; then
   if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update && sudo apt-get install -y python3

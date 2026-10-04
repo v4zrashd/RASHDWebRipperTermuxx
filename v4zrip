@@ -15,7 +15,9 @@ import hashlib
 import html.parser
 import os
 import re
+import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -473,6 +475,42 @@ class Ripper:
               f"to browse offline.{RS}\n")
 
 
+def _first_writable_dir(paths):
+    for path in paths:
+        if os.path.isdir(path) and os.access(path, os.W_OK):
+            return path
+    return None
+
+
+def find_downloads_dir():
+    home = os.path.expanduser("~")
+    return _first_writable_dir([
+        os.path.join(home, "storage", "downloads"),
+        os.path.join(home, "storage", "shared", "Download"),
+        "/sdcard/Download",
+        "/storage/emulated/0/Download",
+    ])
+
+
+def ensure_downloads_dir():
+    """Return the phone Download folder, setting up Termux storage once."""
+    downloads = find_downloads_dir()
+    if downloads:
+        return downloads
+    if shutil.which("termux-setup-storage"):
+        log_info("Setting up phone storage — tap ALLOW if Android asks...")
+        try:
+            subprocess.run(["termux-setup-storage"], check=False)
+        except Exception:
+            pass
+        for _ in range(20):
+            downloads = find_downloads_dir()
+            if downloads:
+                return downloads
+            time.sleep(1)
+    return find_downloads_dir()
+
+
 def main():
     ap = argparse.ArgumentParser(
         prog="v4zrip",
@@ -528,16 +566,26 @@ def main():
         sys.exit(1)
 
     host = urllib.parse.urlparse(url).netloc
+    folder = f"{host}_rip".replace(":", "_")
     if args.output:
         out_dir = args.output
     else:
-        folder = f"{host}_rip".replace(":", "_")
-        downloads = os.path.expanduser("~/storage/downloads")
-        if os.path.isdir(downloads):
+        downloads = ensure_downloads_dir()
+        if downloads:
             out_dir = os.path.join(downloads, "V4Z-Rips", folder)
         else:
             out_dir = folder
-    os.makedirs(out_dir, exist_ok=True)
+            is_termux = bool(shutil.which("termux-setup-storage") or
+                             "com.termux" in os.environ.get("PREFIX", ""))
+            if is_termux:
+                log_warn("Phone storage is not ready — saving in Termux home this time.")
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+    except OSError:
+        if out_dir != folder:
+            log_warn(f"Could not use {out_dir} — saving in Termux home instead.")
+        out_dir = folder
+        os.makedirs(out_dir, exist_ok=True)
 
     depth = 0 if args.single else args.depth
     max_pages = 1 if args.single else args.max_pages
