@@ -271,7 +271,7 @@ class Ripper:
         self.seen = set()
         self.lock = threading.Lock()
         self.stats = {"pages": 0, "assets": 0, "bytes": 0,
-                      "forms": 0, "skipped_robots": 0}
+                      "forms": 0, "skipped_robots": 0, "kinds": {}}
         self.disallowed = []
         self._load_robots()
 
@@ -390,6 +390,8 @@ class Ripper:
                         with self.lock:
                             self.stats["assets"] += 1
                             self.stats["bytes"] += size
+                            kinds = self.stats["kinds"]
+                            kinds[k] = kinds.get(k, 0) + 1
 
                 # rewrite css files that reference local assets
                 for u, rel in list(local_map.items()):
@@ -447,9 +449,21 @@ class Ripper:
 
     def report(self, dt):
         mb = self.stats["bytes"] / (1024 * 1024)
+        kinds = self.stats.get("kinds", {})
+        images = kinds.get("images", 0)
+        css = kinds.get("css", 0)
+        js = kinds.get("js", 0)
+        fonts = kinds.get("fonts", 0)
+        media = kinds.get("media", 0)
+        other = kinds.get("other", 0)
         print(f"\n{G}╔══ RIP COMPLETE ══════════════════════════════╗{RS}")
-        print(f"{G}║{RS}  Pages saved : {W}{self.stats['pages']}{RS}")
-        print(f"{G}║{RS}  Assets      : {W}{self.stats['assets']}{RS}")
+        print(f"{G}║{RS}  Pages saved : {W}{self.stats['pages']}{RS} (HTML code)")
+        print(f"{G}║{RS}  CSS files   : {W}{css}{RS}")
+        print(f"{G}║{RS}  JS files    : {W}{js}{RS}")
+        print(f"{G}║{RS}  Images      : {W}{images}{RS}")
+        if fonts or media or other:
+            print(f"{G}║{RS}  Fonts/Media : {W}{fonts + media + other}{RS}")
+        print(f"{G}║{RS}  Assets total: {W}{self.stats['assets']}{RS}")
         print(f"{G}║{RS}  Total size  : {W}{mb:.2f} MB{RS}")
         print(f"{G}║{RS}  Forms found : {W}{self.stats['forms']}{RS} (info only)")
         print(f"{G}║{RS}  Time        : {W}{dt:.1f}s{RS}")
@@ -464,7 +478,9 @@ def main():
         prog="v4zrip",
         description="V4Z Web Ripper — download a website's public source "
                     "and assets for offline study (educational use only).")
-    ap.add_argument("url", help="website URL to rip, e.g. https://example.com")
+    ap.add_argument("url", nargs="?", default=None,
+                    help="website URL to rip, e.g. https://example.com "
+                         "(omit to open the interactive menu)")
     ap.add_argument("-d", "--depth", type=int, default=1,
                     help="crawl depth, 0 = single page (default: 1)")
     ap.add_argument("-p", "--max-pages", type=int, default=20,
@@ -480,6 +496,29 @@ def main():
     ap.add_argument("-v", "--version", action="version",
                     version=f"%(prog)s {VERSION}")
     args = ap.parse_args()
+
+    interactive = False
+    if not args.url:
+        # ---- interactive menu: just run `v4zrip` ----
+        interactive = True
+        if not args.quiet:
+            banner()
+        try:
+            print(f"\n{C}[?]{RS} {W}Enter the website link:{RS}")
+            link = input(f"    {G}Link:{RS} ").strip()
+            if not link:
+                log_err("No link given. Bye!")
+                sys.exit(1)
+            print(f"\n{C}[?]{RS} {W}What should I rip?{RS}")
+            print(f"    {G}[1]{RS} Full site (all pages, same domain)")
+            print(f"    {G}[2]{RS} Single page only")
+            choice = input(f"    {G}Choose [1/2]:{RS} ").strip()
+        except EOFError:
+            log_err("No input. Give a link: v4zrip https://example.com")
+            sys.exit(1)
+        args.url = link
+        args.single = (choice == "2")
+        print("")
 
     url = args.url.strip()
     if not re.match(r"^https?://", url, re.I):
@@ -503,7 +542,7 @@ def main():
     depth = 0 if args.single else args.depth
     max_pages = 1 if args.single else args.max_pages
 
-    if not args.quiet:
+    if not args.quiet and not interactive:
         banner()
     log_info(f"target : {url}")
     log_info(f"output : {out_dir}")

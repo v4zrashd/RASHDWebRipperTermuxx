@@ -13,10 +13,17 @@ echo "  V4Z WEB RIPPER — installer"
 echo "=============================================="
 
 if command -v pkg >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
   echo "[*] Updating all Termux packages (this can take a few minutes)..."
-  pkg update -y && pkg upgrade -y
+  if ! pkg update -y </dev/null; then
+    echo "[!] Package update failed — your Termux mirror may be down."
+    echo "    Fix: run  termux-change-repo  , pick another mirror,"
+    echo "    then run this installer again."
+    exit 1
+  fi
+  pkg upgrade -y -o Dpkg::Options::="--force-confold" </dev/null
   echo "[*] Installing python..."
-  pkg install -y python
+  pkg install -y python </dev/null
   if [ ! -d "$HOME/storage" ]; then
     echo "[*] Setting up phone storage access..."
     echo "    -> When Android asks, tap ALLOW (one time only)."
