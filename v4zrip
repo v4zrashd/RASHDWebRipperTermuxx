@@ -489,7 +489,15 @@ def main():
         sys.exit(1)
 
     host = urllib.parse.urlparse(url).netloc
-    out_dir = args.output or f"{host}_rip".replace(":", "_")
+    if args.output:
+        out_dir = args.output
+    else:
+        folder = f"{host}_rip".replace(":", "_")
+        downloads = os.path.expanduser("~/storage/downloads")
+        if os.path.isdir(downloads):
+            out_dir = os.path.join(downloads, "V4Z-Rips", folder)
+        else:
+            out_dir = folder
     os.makedirs(out_dir, exist_ok=True)
 
     depth = 0 if args.single else args.depth

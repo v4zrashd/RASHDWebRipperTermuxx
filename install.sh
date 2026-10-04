@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# V4Z WEB RIPPER — installer for Termux / Linux
+# V4Z WEB RIPPER — one-command installer for Termux / Linux
+# Updates Termux packages, installs Python, sets up phone storage,
+# and installs v4zrip. Ripped sites auto-save to Download/V4Z-Rips.
 set -e
 
 REPO="v4zrashd/RASHDWebRipperTermuxx"
@@ -10,11 +12,18 @@ echo "=============================================="
 echo "  V4Z WEB RIPPER — installer"
 echo "=============================================="
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "[*] Installing python3..."
-  if command -v pkg >/dev/null 2>&1; then
-    pkg update -y && pkg install -y python
-  elif command -v apt-get >/dev/null 2>&1; then
+if command -v pkg >/dev/null 2>&1; then
+  echo "[*] Updating all Termux packages (this can take a few minutes)..."
+  pkg update -y && pkg upgrade -y
+  echo "[*] Installing python..."
+  pkg install -y python
+  if [ ! -d "$HOME/storage" ]; then
+    echo "[*] Setting up phone storage access..."
+    echo "    -> When Android asks, tap ALLOW (one time only)."
+    termux-setup-storage || true
+  fi
+elif ! command -v python3 >/dev/null 2>&1; then
+  if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update && sudo apt-get install -y python3
   else
     echo "[!] python3 not found. Please install python3 first."
@@ -30,4 +39,5 @@ echo ""
 echo "[+] Installed! Run it with:"
 echo "    v4zrip https://example.com"
 echo ""
+echo "    Ripped sites auto-save to: Download/V4Z-Rips (phone storage)"
 echo "    Join: https://t.me/rashdteem"
