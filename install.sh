@@ -4,7 +4,8 @@
 # Does everything: package update+upgrade, Python install, phone
 # storage setup, and the v4zrip tool install. Menu mode included:
 # just type  v4zrip  and it asks for the link.
-# Ripped sites auto-save to Download/V4Z-Rips on the phone.
+# Ripped sites auto-save into a "RASHD" folder on the phone,
+# each rip in its own numbered subfolder (001_, 002_, ...).
 set -e
 
 REPO="v4zrashd/RASHDWebRipperTermuxx"
@@ -33,8 +34,8 @@ if command -v pkg >/dev/null 2>&1; then
     echo "    -> When Android asks, tap ALLOW (one time only)."
     termux-setup-storage </dev/null || true
   fi
-  if [ -d "$HOME/storage/downloads" ]; then
-    mkdir -p "$HOME/storage/downloads/V4Z-Rips" || true
+  if [ -d "$HOME/storage/shared" ]; then
+    mkdir -p "$HOME/storage/shared/RASHD" || true
   fi
 elif ! command -v python3 >/dev/null 2>&1; then
   if command -v apt-get >/dev/null 2>&1; then
@@ -60,5 +61,6 @@ echo "[+] DONE! Now just run:"
 echo "    v4zrip"
 echo ""
 echo "    It will ask for the website link — that's it."
-echo "    Ripped sites auto-save to: Download/V4Z-Rips (phone storage)"
+echo "    Ripped sites auto-save to: RASHD folder (phone storage),"
+echo "    each rip numbered: 001_, 002_, 003_ ..."
 echo "    Join: https://t.me/rashdteem"

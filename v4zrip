@@ -482,21 +482,20 @@ def _first_writable_dir(paths):
     return None
 
 
-def find_downloads_dir():
+def find_storage_root():
     home = os.path.expanduser("~")
     return _first_writable_dir([
-        os.path.join(home, "storage", "downloads"),
-        os.path.join(home, "storage", "shared", "Download"),
-        "/sdcard/Download",
-        "/storage/emulated/0/Download",
+        os.path.join(home, "storage", "shared"),
+        "/sdcard",
+        "/storage/emulated/0",
     ])
 
 
-def ensure_downloads_dir():
-    """Return the phone Download folder, setting up Termux storage once."""
-    downloads = find_downloads_dir()
-    if downloads:
-        return downloads
+def ensure_storage_root():
+    """Return the phone storage root, setting up Termux storage once."""
+    root = find_storage_root()
+    if root:
+        return root
     if shutil.which("termux-setup-storage"):
         log_info("Setting up phone storage — tap ALLOW if Android asks...")
         try:
@@ -504,11 +503,42 @@ def ensure_downloads_dir():
         except Exception:
             pass
         for _ in range(20):
-            downloads = find_downloads_dir()
-            if downloads:
-                return downloads
+            root = find_storage_root()
+            if root:
+                return root
             time.sleep(1)
-    return find_downloads_dir()
+    return find_storage_root()
+
+
+def next_numbered_dir(base, folder):
+    """Create and return base/NNN_<folder> with the next free number."""
+    os.makedirs(base, exist_ok=True)
+    max_n = 0
+    for name in os.listdir(base):
+        m = re.match(r"^(\d+)_", name)
+        if m and os.path.isdir(os.path.join(base, name)):
+            max_n = max(max_n, int(m.group(1)))
+    n = max_n + 1
+    while True:
+        candidate = os.path.join(base, f"{n:03d}_{folder}")
+        if not os.path.exists(candidate):
+            return candidate
+        n += 1
+
+
+def default_output_dir(folder):
+    """Default save place: <phone storage>/RASHD/NNN_<host>_rip."""
+    root = ensure_storage_root()
+    bases = []
+    if root:
+        bases.append(os.path.join(root, "RASHD"))
+    bases.append(os.path.join(os.path.expanduser("~"), "RASHD"))
+    for base in bases:
+        try:
+            return next_numbered_dir(base, folder)
+        except OSError:
+            continue
+    return folder
 
 
 def main():
@@ -570,15 +600,12 @@ def main():
     if args.output:
         out_dir = args.output
     else:
-        downloads = ensure_downloads_dir()
-        if downloads:
-            out_dir = os.path.join(downloads, "V4Z-Rips", folder)
-        else:
-            out_dir = folder
-            is_termux = bool(shutil.which("termux-setup-storage") or
-                             "com.termux" in os.environ.get("PREFIX", ""))
-            if is_termux:
-                log_warn("Phone storage is not ready — saving in Termux home this time.")
+        out_dir = default_output_dir(folder)
+        home_base = os.path.join(os.path.expanduser("~"), "RASHD")
+        is_termux = bool(shutil.which("termux-setup-storage") or
+                         "com.termux" in os.environ.get("PREFIX", ""))
+        if is_termux and out_dir.startswith(home_base):
+            log_warn("Phone storage is not ready — saving in Termux RASHD folder this time.")
     try:
         os.makedirs(out_dir, exist_ok=True)
     except OSError:
